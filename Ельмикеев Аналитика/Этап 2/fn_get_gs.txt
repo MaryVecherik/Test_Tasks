@@ -1,0 +1,11 @@
+
+Задача - загрузить из Google диска без авторизации (не через встроенный коннектор, а через метод Excel.Workbook ( ( ) ).
+
+(id) =>
+  let 
+    Источник = Excel.Workbook(Web.Contents("https://docs.google.com/spreadsheets/d/" & id & "/export?format=xlsx"), 
+    null, 
+    true
+    )
+  in
+   Источник 

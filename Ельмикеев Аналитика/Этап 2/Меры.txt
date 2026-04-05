@@ -1,0 +1,159 @@
+Выручка WB = [Продажи] - [Возвраты]
+
+Продажи = 
+CALCULATE(
+    SUM('public sales_reports'[retail_amount]),
+    'public sales_reports'[doc_type_name] = "Продажа"
+)
+
+Возвраты = 
+CALCULATE(
+    SUM('public sales_reports'[retail_amount]),
+    'public sales_reports'[doc_type_name] = "Возврат"
+)
+
+---------------------------------------------------
+
+Заказы = SUM('public sales_reports'[quantity])
+
+----------------------------------------------------
+
+Комиссия WB = SUM('public sales_reports'[ppvz_sales_commission])
+
+----------------------------------------------------
+
+Комиссия WB (% от продаж) = DIVIDE([Комиссия WB], [Продажи / Sales])
+
+Продажи / Sales = 
+CALCULATE(
+    SUM('public sales'[priceWithDisc]), 
+    FILTER('public sales', 'public sales'[IsStorno] = 0)
+)
+
+------------------------------------------------------
+
+Логистика = SUM('public sales_reports'[delivery_rub])
+
+-------------------------------------------------------
+
+k = SUMX('public sales_reports', 
+'public sales_reports'[ppvz_reward] + 
+'public sales_reports'[ppvz_vw] + 
+'public sales_reports'[ppvz_vw_nds] + 
+'public sales_reports'[delivery_rub] + 
+DIVIDE('public sales_reports'[retail_amount], 'public sales_reports'[quantity], 0) * 0.02 + 
+RELATED('Себестоимость'[Себестоимость]) * 'public sales_reports'[quantity]
+)
+
+Валовая прибыль = 
+[Выручка WB] 
+- 
+CALCULATE([k],'public sales_reports'[doc_type_name] = "Продажа") 
++ 
+CALCULATE([k], 'public sales_reports'[doc_type_name] = "Возврат")
+
+
+Валовая прибыль 2 = 
+[Выручка WB]
+- [Расходы WB]
+- [Себестоимость]
+- [Эквайринг]
+
+Расходы WB = 
+SUM('public sales_reports'[ppvz_reward]) +
+SUM('public sales_reports'[ppvz_vw]) +
+SUM('public sales_reports'[ppvz_vw_nds]) +
+SUM('public sales_reports'[delivery_rub])
+
+Себестоимость = 
+SUMX(
+    'public sales_reports',
+    VAR qty =
+        IF(
+            'public sales_reports'[doc_type_name] = "Продажа",
+            'public sales_reports'[quantity],
+            -'public sales_reports'[quantity]
+        )
+    RETURN
+        qty * RELATED('Себестоимость'[Себестоимость])
+)
+
+Эквайринг = 
+SUMX(
+    'public sales_reports',
+    DIVIDE(
+        'public sales_reports'[retail_amount],
+        'public sales_reports'[quantity]
+    ) * 0.02
+)
+
+---------------------------------------------------------
+
+Рентабельность = DIVIDE([Валовая прибыль], [Выручка WB])
+
+---------------------------------------------------------
+
+POI = DIVIDE([Валовая прибыль], [Себестоимость])
+
+
+Себестоимость = 
+SUMX(
+    'public sales_reports',
+    VAR qty =
+        IF(
+            'public sales_reports'[doc_type_name] = "Продажа",
+            'public sales_reports'[quantity],
+            -'public sales_reports'[quantity]
+        )
+    RETURN
+        qty * RELATED('Себестоимость'[Себестоимость])
+)
+----------------------------------------------------------
+
+
+Выручка за период = 
+var a = DATEDIFF(MIN('Календарь'[Date]), MAX('Календарь'[Date]),DAY) + 1
+var b = MIN('Календарь'[Date]) - a
+
+RETURN
+CALCULATE([Выручка WB], DATESBETWEEN('Календарь'[Date], b, MIN('Календарь'[Date])))
+
+------------------------------------
+Рост = 
+IF([Выручка WB] - [Выручка за период] > 0,
+[Выручка WB] - [Выручка за период], BLANK())
+
+----------------------------
+Падение = 
+IF ([Выручка за период] - [Выручка WB] > 0, 
+[Выручка за период] - [Выручка WB], BLANK())
+
+----------------------------------------------------------
+
+Кол-во возвратов = 
+CALCULATE(
+    SUM('public sales_reports'[quantity]), 'public sales_reports'[doc_type_name] = "Возврат"
+)
+
+----------------------------------------------------------
+
+Продажи обл = CALCULATE(
+    SUM('public sales'[forpay]),
+    FILTER(
+        'public sales',
+        'public sales'[is_realization] = 1
+    )
+)
+
+--------------------------------------------------------
+Проверка
+
+Дубли себестоимость = 
+COUNTROWS('Себестоимость')
+    - DISTINCTCOUNT('Себестоимость'[barcode]) = 0
+
+Дубли sales_reports = 
+COUNTROWS('public sales_reports')
+    - DISTINCTCOUNT('public sales_reports'[id]) = 0
+
+
